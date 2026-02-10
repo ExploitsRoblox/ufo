@@ -2,7 +2,9 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>GD UFO - Extreme Speed</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sala Do Futuro Aluno</title>
+    <link rel="icon" href="favicon.png" type="image/png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -20,28 +22,39 @@
         #ui {
             position: absolute; top: 5%; width: 100%; color: white;
             font-size: clamp(16px, 3vw, 28px); text-align: center;
-            pointer-events: none; text-shadow: 2px 2px #000; z-index: 10;
+            text-shadow: 2px 2px #000; z-index: 10;
         }
+        #msg { pointer-events: auto; cursor: pointer; display: inline-block; margin-top: 6px; }
         .speed-val { font-weight: bold; color: #ff0055; }
     </style>
 </head>
 <body>
     <div id="game-wrapper">
-        <div id="ui">
-            <div id="score">Score: 0</div>
+        <header id="ui" role="banner">
+            <div id="score" aria-live="polite">Score: 0</div>
             <div id="speed-tag">Velocidade: <span class="speed-val">1x</span></div>
-            <div id="msg">Aperte Espaço ou Seta Cima</div>
-        </div>
+            <div id="msg" role="button" aria-pressed="false" tabindex="0">Aperte Espaço, Toque ou Seta Cima</div>
+        </header>
         <canvas id="gameCanvas"></canvas>
     </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        const scoreElement = document.querySelector(".speed-val");
+        const speedElement = document.querySelector(".speed-val");
 
-        canvas.width = 1280; 
-        canvas.height = 720;
+        // --- ALTERAÇÃO AQUI: Carregamento da Imagem ---
+        const ufoImg = new Image();
+        ufoImg.src = 'ufo.png'; // Substitua pelo caminho da sua imagem (png transparente é melhor)
+
+        const W = 1280;
+        const H = 720;
+        const DPR = Math.max(1, window.devicePixelRatio || 1);
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.width = W * DPR;
+        canvas.height = H * DPR;
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
         let score = 0;
         let gameRunning = false;
@@ -49,7 +62,6 @@
         const gravity = 0.5;
         const jump = -9;
 
-        // Portais: 1x, 2x, 3x, 4x e 5x
         const portalTypes = [
             { name: "0.01x", color: "#ff0000", speed: 4 },
             { name: "1x", color: "#00ccff", speed: 7 },
@@ -59,22 +71,21 @@
             { name: "4x", color: "#ff3300", speed: 20 },
             { name: "4.5x", color: "#0000ff", speed: 23 },
             { name: "5x", color: "#ffffff", speed: 26 },
-            { name: "6x", color: "#000000", speed: 30 }, 
+            { name: "6x", color: "#ffff00", speed: 30 }, 
         ];
 
         const ufo = {
-            x: 180, y: 360, w: 60, h: 45, velocity: 0,
+            x: 180, y: 360, w: 70, h: 50, // Ajustei levemente o tamanho para a imagem
+            velocity: 0,
             draw() {
-                ctx.lineWidth = 4;
-                // Cúpula
-                ctx.fillStyle = "rgba(135, 206, 250, 0.8)";
-                ctx.fillRect(this.x + 10, this.y - 15, this.w - 20, 15);
-                ctx.strokeRect(this.x + 10, this.y - 15, this.w - 20, 15);
-                // Base
-                ctx.fillStyle = "#00ff00";
-                ctx.fillRect(this.x, this.y, this.w, this.h);
-                ctx.strokeStyle = "black";
-                ctx.strokeRect(this.x, this.y, this.w, this.h);
+                // --- ALTERAÇÃO AQUI: Desenha a imagem em vez de formas geométricas ---
+                if (ufoImg.complete) {
+                    ctx.drawImage(ufoImg, this.x, this.y, this.w, this.h);
+                } else {
+                    // Fallback caso a imagem não carregue: desenha um retângulo simples
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(this.x, this.y, this.w, this.h);
+                }
             },
             update() {
                 if (gameRunning) {
@@ -90,7 +101,7 @@
         function createObstacle() {
             const gap = 240;
             const minH = 100;
-            const topH = Math.random() * (canvas.height - gap - (minH * 2)) + minH;
+            const topH = Math.random() * (H - gap - (minH * 2)) + minH;
             const portalConfig = portalTypes[Math.floor(Math.random() * portalTypes.length)];
             
             obstacles.push({
@@ -114,24 +125,18 @@
                 let o = obstacles[i];
                 o.x -= gameSpeed;
 
-                // Colisão Canos
                 if (ufo.x + ufo.w > o.x && ufo.x < o.x + 80) {
                     if (ufo.y < o.topH || ufo.y + ufo.h > o.topH + o.gap) {
                         gameOver();
                     }
                 }
 
-                // Colisão Portal (Entrada da passagem)
-                if (o.portalActive && ufo.x + ufo.w > o.x && ufo.x < o.x + 40) {
+                if (o.portalActive && ufo.x + ufo.w > o.x && ufo.x < o.x + 80 && ufo.y + ufo.h > o.topH && ufo.y < o.topH + o.gap) {
                     gameSpeed = o.portal.speed;
-                    scoreElement.innerText = o.portal.name;
+                    speedElement.innerText = o.portal.name;
                     o.portalActive = false;
-                    // Efeito visual de troca de velocidade
-                    ctx.fillStyle = "white";
-                    ctx.fillRect(0,0, canvas.width, canvas.height);
                 }
 
-                // Score
                 if (!o.passed && o.x + 80 < ufo.x) {
                     score++;
                     document.getElementById("score").innerText = "Score: " + score;
@@ -143,16 +148,13 @@
         }
 
         function draw() {
-            // BG
             ctx.fillStyle = "#001122";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, W, H);
             
-            // Grid
             ctx.strokeStyle = "rgba(255,255,255,0.05)";
-            for(let x=0; x<canvas.width; x+=60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+            for(let x=0; x<W; x+=60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x, H); ctx.stroke(); }
 
             obstacles.forEach(o => {
-                // Portal na entrada
                 if(o.portalActive) {
                     ctx.fillStyle = o.portal.color;
                     ctx.shadowBlur = 20; ctx.shadowColor = o.portal.color;
@@ -162,14 +164,13 @@
                     ctx.shadowBlur = 0;
                 }
 
-                // Canos
                 ctx.fillStyle = "#111";
                 ctx.strokeStyle = "#444";
                 ctx.lineWidth = 4;
                 ctx.fillRect(o.x, 0, 80, o.topH);
                 ctx.strokeRect(o.x, 0, 80, o.topH);
-                ctx.fillRect(o.x, o.topH + o.gap, 80, canvas.height);
-                ctx.strokeRect(o.x, o.topH + o.gap, 80, canvas.height);
+                ctx.fillRect(o.x, o.topH + o.gap, 80, H);
+                ctx.strokeRect(o.x, o.topH + o.gap, 80, H);
             });
 
             ufo.draw();
@@ -187,7 +188,7 @@
             ufo.y = 360;
             ufo.velocity = 0;
             document.getElementById("score").innerText = "Score: 0";
-            scoreElement.innerText = "1x";
+            speedElement.innerText = "1x";
             document.getElementById("msg").innerText = "";
             gameRunning = true;
         }
@@ -199,10 +200,16 @@
                 else ufo.velocity = jump;
             }
         });
-        window.addEventListener("mousedown", () => {
+
+        const startEl = document.getElementById('msg');
+        const handleAction = (e) => {
+            e.preventDefault();
             if (!gameRunning) resetGame();
             else ufo.velocity = jump;
-        });
+        };
+
+        startEl.addEventListener('mousedown', handleAction);
+        startEl.addEventListener('touchstart', handleAction, {passive:false});
 
         function gameLoop() {
             ufo.update();
@@ -210,7 +217,11 @@
             draw();
             requestAnimationFrame(gameLoop);
         }
-        gameLoop();
+        
+        // --- ALTERAÇÃO AQUI: Só inicia o loop após a imagem carregar ---
+        ufoImg.onload = () => {
+            gameLoop();
+        };
     </script>
 </body>
 </html>
